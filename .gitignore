@@ -2,3 +2,4 @@ out/
 *.swp
 *.mov
 *.gif
+.DS_Store

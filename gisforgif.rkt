@@ -42,25 +42,27 @@
        (inexact->exact (floor (string->number (first duration-numstr-list)))))]
     [else 0]))
 
-(define (creation-time-line info-lines)
+(define (creation-date-line info-lines)
   (first (filter
            (lambda (line) (regexp-match? #rx"^creation_time" line))
            info-lines)))
 
-(define (creation-time-string info-lines)
+(define (creation-date-string info-lines)
   (cond
     [(regexp-match
        #rx"[0-9]*\\-[0-9]*\\-[0-9]*"
-       (creation-time-line info-lines)) =>
+       (creation-date-line info-lines)) =>
      (lambda (timestr-match-list) (first timestr-match-list))]
     [else "0000-00-00"]))
 
+;
 ;get the info for the movie
+;
 (define (movie-info movie-in)
   (let ([info-lines (ffmprobe-lines movie-in)])
     (hash
       'duration (duration-seconds info-lines)
-      'datestring (creation-time-string info-lines))))
+      'datestring (creation-date-string info-lines))))
 
 
 ;-- generating the gifs -------------------------
