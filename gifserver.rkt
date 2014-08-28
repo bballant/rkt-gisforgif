@@ -1,6 +1,8 @@
 #lang web-server/insta
 
-(define gif-dir "/Users/bballantine/projects/rkt-gisforgif/out")
+; scrap
+
+(define gif-dir "~/projects/rkt-gisforgif/out")
 
 (define (start request)
   (response/xexpr
