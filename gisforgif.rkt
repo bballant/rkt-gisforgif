@@ -87,19 +87,44 @@
           0
           (random (- dur gif-seconds)))))
 
-(define (gen-gif movie-in base-filename-out)
+(define (during-babys-first-year? datestring)
+  (define first-birthday-plus-1 '(2014 06 13))
+  ; tail-recursive check to see if one list is less than another
+  ; returns #f if lists are different length (good enough behavior)
+  (define (list< a b)
+    (cond
+      [(and (empty? a) (empty? b)) #t]
+      [(not (= (length a) (length b))) #f]
+      [(not (< (first a) (first b))) #f]
+      [else (list< (rest a) (rest b))]))
+  (define datelist
+    (regexp-match #px"([0-9]{4})\\-([0-9]{2})\\-[0-9]{2}" datestring))
+  (if (or (empty? datelist) (not (= 4 (length datelist))))
+      #f
+      (list< (map string->number (rest datelist)) first-birthday-plus-1)))
+
+(define (gen-gif movie-in base-filename-out [limit-to-year #f])
   (let ([movie-info-hash (movie-info movie-in)])
-    (if (empty? movie-info-hash)
-      'no-op
-      (system* (find-executable-path "ffmpeg")
-              "-i" movie-in
-              "-ss" (~a (rando-start-time movie-info-hash))
-              "-t" (~a gif-seconds)
-              "-vf" "scale=640:360"
-              "-y"  (~a base-filename-out
-                        "-"
-                        (hash-ref movie-info-hash 'datestring)
-                        ".gif")))))
+    (cond
+      [(empty? movie-info-hash) 'no-op]
+      [(and limit-to-year (not (during-babys-first-year? (hash-ref movie-info-hash 'datestring)))) 'no-op]
+      [else
+        (display "\n\n\n\n")
+        (display "===================== ")
+        (display movie-in)
+        (display "\n\n")
+        (display "===================== ")
+        (display (hash-ref movie-info-hash 'datestring))
+        (display "\n\n")
+        (system* (find-executable-path "ffmpeg")
+                 "-i" movie-in
+                "-ss" (~a (rando-start-time movie-info-hash))
+                "-t" (~a gif-seconds)
+                "-vf" "scale=640:360"
+                "-y"  (~a base-filename-out
+                          "-"
+                          (hash-ref movie-info-hash 'datestring)
+                          ".gif"))])))
 
 ;-- thumbnails for gifs -------------------------
 
