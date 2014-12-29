@@ -26,7 +26,7 @@
       (lambda (path)
         (and
           (regexp-match? #rx"[.](?i:MOV)$" path) ; case-insensitive
-          (not (regexp-match? #rx"Cache-[0-9]+.mov$" path))))
+          (not (regexp-match? #rx"Cache-[0-9]+.*mov$" path))))
         ; (regexp-match? #rx"[.]mov$" path)) ; just lower-case
       (sequence->stream (in-directory movie-dir)))))
 
@@ -89,64 +89,44 @@
     (random (- dur gif-seconds))))
 
 (define (during-babys-first-year? datestring)
-  (define first-birthday-plus-1 '(2014 06 13))
+  (define first-birthday-plus-1 '(2014 07 01))
   ; tail-recursive check to see if one list is less than another
   ; returns #f if lists are different length (good enough behavior)
   (define (list< a b)
     (cond
       [(and (empty? a) (empty? b)) #t]
       [(not (= (length a) (length b))) #f]
-      [(not (< (first a) (first b))) #f]
+      [(< (first a) (first b)) #t]
       [else (list< (rest a) (rest b))]))
   (define datelist
-    (regexp-match #px"([0-9]{4})\\-([0-9]{2})\\-[0-9]{2}" datestring))
+    (regexp-match #px"([0-9]{4})\\-([0-9]{2})\\-([0-9]{2})" datestring))
   (if (or (empty? datelist) (not (= 4 (length datelist))))
       #f
       (list< (map string->number (rest datelist)) first-birthday-plus-1)))
 
-(define (gen-gif movie-in base-filename-out [limit-to-year #f])
+(define (gen-gif movie-in base-filename-out index [limit-to-year #f])
   (let ([movie-info-hash (movie-info movie-in)])
+    (display (~a
+               "\n\n\n\n" index "\n"
+               "=====================\n"
+               movie-in "\n\n"
+               (hash-ref movie-info-hash 'datestring)
+               "\n\n"))
     (cond
       [(empty? movie-info-hash) 'no-op]
+      [(= 0 (hash-ref movie-info-hash 'duration)) 'no-op]
       [(and limit-to-year (not (during-babys-first-year? (hash-ref movie-info-hash 'datestring)))) 'no-op]
       [else
-        (display "\n\n\n\n")
-        (display "===================== ")
-        (display movie-in)
-        (display "\n\n")
-        (display "===================== ")
-        (display (hash-ref movie-info-hash 'datestring))
-        (display "\n\n")
         (system* (find-executable-path "ffmpeg")
-                 "-i" movie-in
-                "-ss" (~a (rando-start-time movie-info-hash))
+                "-i" movie-in
+                "-ss" (~a (rando-start-time (hash-ref movie-info-hash 'duration)))
                 "-t" (~a gif-seconds)
                 "-vf" "scale=640:360"
-                "-y"  (~a base-filename-out
-                          "-"
-                          (hash-ref movie-info-hash 'datestring)
+                "-y"  (~a
+                          base-filename-out
+                          "-" (hash-ref movie-info-hash 'datestring)
+                          "-" "i" index
                           ".gif"))])))
-
-(define (gen-gif2 movie-in base-filename-out index)
-  (let ([movie-info-hash (movie-info movie-in)])
-    (if (or
-          (empty? movie-info-hash)
-          (= 0 (hash-ref movie-info-hash 'duration)))
-      'no-op
-      (system* (find-executable-path "ffmpeg")
-              "-i" movie-in
-              "-ss" (~a (rando-start-time
-                          (hash-ref movie-info-hash 'duration)))
-              "-t" (~a gif-seconds)
-              "-vf" "scale=640:360"
-              "-y"  (~a
-                        base-filename-out
-                        "-"
-                        (hash-ref movie-info-hash 'datestring)
-                        "-"
-                        "i"
-                        index
-                        ".gif")))))
 
 ;-- thumbnails for gifs -------------------------
 
@@ -181,7 +161,7 @@
             (hasheq 'datestring (first
                                   (regexp-match #px"[0-9]{4}\\-[0-9]{2}\\-[0-9]{2}"
                                                 (base-filename (~a gif))))
-                    'filepath (~a gif))))
+                    'filename (base-filename (~a gif)))))
 
 (define (write-gif-json json-file-name gif-dir)
   (let ([json-file (open-output-file json-file-name #:exists 'replace)])
@@ -196,9 +176,9 @@
 (define (gen-n-rando-movies n filebase)
   (for ([i (in-naturals 0)]
         [movie (rando-movie-list n)])
-    (gen-gif movie (~a filebase i))))
+    (gen-gif movie filebase i #t)))
 
 (define (gen-all-movies filebase)
   (for ([i (in-naturals 0)]
         [movie movie-list])
-    (gen-gif2 movie filebase i)))
+    (gen-gif movie filebase i #t)))
