@@ -1,5 +1,7 @@
 #lang racket
 
+(require racket/string)
+
 ;-- command line -------------------------------
 
 ; (define verbose-mode (make-parameter #f))
@@ -15,12 +17,12 @@
 ;-- getting movies ------------------------------
 
 (define movie-dir
-  "/Users/bballantine/Google Drive/iMovie Events.localized")
+  "/Users/jb/Google Drive/iMovie Events.localized")
 
 ; gets all the movies in movie-dir
 (define movie-list
   (stream->list
-    (stream-filter 
+    (stream-filter
       (lambda (path)
         (regexp-match? #rx"[.](?i:MOV)$" path)) ; case-insensitive
         ; (regexp-match? #rx"[.]mov$" path)) ; just lower-case
@@ -98,6 +100,48 @@
                         "-"
                         (hash-ref movie-info-hash 'datestring)
                         ".gif")))))
+
+;-- thumbnails for gifs -------------------------
+
+; gets all the gifs in gif-dir
+(define (gif-list gif-dir)
+  (stream->list
+    (stream-filter
+      (lambda (path)
+        (regexp-match? #rx"[.](?i:GIF)$" path)) ; case-insensitive
+      (sequence->stream (in-directory gif-dir)))))
+
+(define (base-filename filename)
+  (last (string-split (first (string-split filename ".")) "/")))
+
+(define (gen-thumb gif-in dir-out)
+  (let ([base-in (base-filename (~a gif-in))])
+    (system* (find-executable-path "ffmpeg")
+             "-i" gif-in
+             "-vf" "scale=30:17"
+             "-y" (~a dir-out "/" base-in "-thm.gif"))))
+
+(define (gen-all-thumbs in-dir dir-out)
+  (for ([gif (gif-list in-dir)])
+    (gen-thumb gif dir-out)))
+
+;-- json ----------------------------------------
+
+(require json)
+
+(define (gifdir->jsexpr gif-dir)
+  (for/list ([gif (gif-list gif-dir)])
+            (hasheq 'datestring (first
+                                  (regexp-match #px"[0-9]{4}\\-[0-9]{2}\\-[0-9]{2}"
+                                                (base-filename (~a gif))))
+                    'filepath (~a gif))))
+
+(define (write-gif-json json-file-name gif-dir)
+  (let ([json-file (open-output-file json-file-name #:exists 'replace)])
+    (write-json (gifdir->jsexpr gif-dir) json-file)
+    (close-output-port json-file)))
+
+;-- controlling it all --------------------------
 
 (define (rando-movie-list n)
   (for/list ([i n]) (rando-movie)))
