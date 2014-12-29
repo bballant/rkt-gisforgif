@@ -24,7 +24,9 @@
   (stream->list
     (stream-filter
       (lambda (path)
-        (regexp-match? #rx"[.](?i:MOV)$" path)) ; case-insensitive
+        (and
+          (regexp-match? #rx"[.](?i:MOV)$" path) ; case-insensitive
+          (not (regexp-match? #rx"Cache-[0-9]+.mov$" path))))
         ; (regexp-match? #rx"[.]mov$" path)) ; just lower-case
       (sequence->stream (in-directory movie-dir)))))
 
@@ -81,11 +83,10 @@
 
 (define gif-seconds 2)
 
-(define (rando-start-time movie-info-hash)
-  (let ([dur (hash-ref movie-info-hash 'duration)])
-        (if (<= dur gif-seconds)
-          0
-          (random (- dur gif-seconds)))))
+(define (rando-start-time dur)
+  (if (<= dur gif-seconds)
+    0
+    (random (- dur gif-seconds))))
 
 (define (during-babys-first-year? datestring)
   (define first-birthday-plus-1 '(2014 06 13))
@@ -125,6 +126,27 @@
                           "-"
                           (hash-ref movie-info-hash 'datestring)
                           ".gif"))])))
+
+(define (gen-gif2 movie-in base-filename-out index)
+  (let ([movie-info-hash (movie-info movie-in)])
+    (if (or
+          (empty? movie-info-hash)
+          (= 0 (hash-ref movie-info-hash 'duration)))
+      'no-op
+      (system* (find-executable-path "ffmpeg")
+              "-i" movie-in
+              "-ss" (~a (rando-start-time
+                          (hash-ref movie-info-hash 'duration)))
+              "-t" (~a gif-seconds)
+              "-vf" "scale=640:360"
+              "-y"  (~a
+                        base-filename-out
+                        "-"
+                        (hash-ref movie-info-hash 'datestring)
+                        "-"
+                        "i"
+                        index
+                        ".gif")))))
 
 ;-- thumbnails for gifs -------------------------
 
@@ -179,4 +201,4 @@
 (define (gen-all-movies filebase)
   (for ([i (in-naturals 0)]
         [movie movie-list])
-    (gen-gif movie (~a filebase i))))
+    (gen-gif2 movie filebase i)))
