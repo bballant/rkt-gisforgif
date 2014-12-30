@@ -57,6 +57,8 @@
          (lambda (match-list) (durstr->dursecs (first match-list)))]
       [else 0])))
 
+; TODO we can get datestring from the movie name :-)
+; (regexp-match #px"^([0-9]{4})([0-9]{2})([0-9]{2})" "20130613-03-MVI_0216.mov")
 (define (creation-date-string info-lines)
   (local
     [(define creation-date-line
@@ -68,9 +70,7 @@
          (lambda (timestr-match-list) (first timestr-match-list))]
       [else "0000-00-00"])))
 
-;
 ;get the info for the movie
-;
 (define (movie-info movie-in)
   (let ([info-lines (ffmprobe-lines movie-in)])
     (if (empty? info-lines)
@@ -89,12 +89,12 @@
     (random (- dur gif-seconds))))
 
 (define (during-babys-first-year? datestring)
-  (define first-birthday-plus-1 '(2014 07 01))
+  (define first-birthday-plus-1 '(2013 10 01))
   ; tail-recursive check to see if one list is less than another
   ; returns #f if lists are different length (good enough behavior)
   (define (list< a b)
     (cond
-      [(and (empty? a) (empty? b)) #t]
+      [(and (empty? a) (empty? b)) #f]
       [(not (= (length a) (length b))) #f]
       [(< (first a) (first b)) #t]
       [else (list< (rest a) (rest b))]))
